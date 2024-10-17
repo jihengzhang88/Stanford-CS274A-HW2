@@ -36,7 +36,21 @@ def compute_traj_coeffs(initial_state: State, final_state: State, tf: float) -> 
     Hint: Use the np.linalg.solve function.
     """
     ########## Code starts here ##########
+    # Set up the system of equations for x and y
+    A = np.array([
+        [1, 0, 0, 0],          # x(0) = x0
+        [0, 1, 0, 0],          # v(0) = v0
+        [1, tf, tf**2, tf**3], # x(tf) = xf
+        [0, 1, 2*tf, 3*tf**2]  # v(tf) = vf
+    ])
 
+    b_x = np.array([initial_state.x, initial_state.xd, final_state.x, final_state.V * np.cos(final_state.th)])
+    b_y = np.array([initial_state.y, initial_state.yd, final_state.y, final_state.V * np.sin(final_state.th)])
+
+    x_coeffs = np.linalg.solve(A, b_x)
+    y_coeffs = np.linalg.solve(A, b_y)
+
+    coeffs = np.hstack([x_coeffs, y_coeffs])
     ########## Code ends here ##########
     return coeffs
 
@@ -54,7 +68,31 @@ def compute_traj(coeffs: np.ndarray, tf: float, N: int) -> T.Tuple[np.ndarray, n
     t = np.linspace(0, tf, N) # generate evenly spaced points from 0 to tf
     traj = np.zeros((N, 7))
     ########## Code starts here ##########
+    # Coefficients for x and y
+    x_coeffs = coeffs[:4]
+    y_coeffs = coeffs[4:]
 
+    for i in range(N):
+        ti = t[i]
+        ti_vec = np.array([1, ti, ti**2, ti**3])
+
+        # x, y position
+        traj[i, 0] = np.dot(x_coeffs, ti_vec)
+        traj[i, 1] = np.dot(y_coeffs, ti_vec)
+
+        # theta angle
+        traj[i, 2] = np.arctan2(
+            np.dot(y_coeffs[1:], [1, 2*ti, 3*ti**2]),
+            np.dot(x_coeffs[1:], [1, 2*ti, 3*ti**2])
+        )
+
+        # x, y velocity
+        traj[i, 3] = np.dot(x_coeffs[1:], [1, 2*ti, 3*ti**2])
+        traj[i, 4] = np.dot(y_coeffs[1:], [1, 2*ti, 3*ti**2])
+
+        # x, y acceleration
+        traj[i, 5] = np.dot(x_coeffs[2:], [2, 6*ti])
+        traj[i, 6] = np.dot(y_coeffs[2:], [2, 6*ti])
     ########## Code ends here ##########
 
     return t, traj
@@ -68,7 +106,8 @@ def compute_controls(traj: np.ndarray) -> T.Tuple[np.ndarray, np.ndarray]:
         om (np.array shape [N]) om at each point of traj
     """
     ########## Code starts here ##########
-
+    V = np.sqrt(traj[:, 3]**2 + traj[:, 4]**2)
+    om = np.diff(traj[:, 2], append=traj[-1, 2]) / (traj[1, 0] - traj[0, 0])  # numerical derivative
     ########## Code ends here ##########
 
     return V, om

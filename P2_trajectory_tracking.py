@@ -62,7 +62,22 @@ class TrajectoryTracker:
         x_d, xd_d, xdd_d, y_d, yd_d, ydd_d = self.get_desired_state(t)
 
         ########## Code starts here ##########
+        # Compute the current velocities
+        Vx = self.V_prev * np.cos(th)  # x velocity
+        Vy = self.V_prev * np.sin(th)  # y velocity
 
+        # Virtual controls
+        u1 = xdd_d + self.kpx * (x_d - x) + self.kdx * (xd_d - Vx)
+        u2 = ydd_d + self.kpy * (y_d - y) + self.kdy * (yd_d - Vy)
+
+        # Compute control inputs
+        V = self.V_prev + (u1 * np.cos(th) + u2 * np.sin(th)) * dt
+
+        # Prevent division by zero
+        if abs(V) < V_PREV_THRES:
+            V = V_PREV_THRES  # Ensure non-zero velocity for omega calculation
+
+        om = (u2 * np.cos(th) - u1 * np.sin(th)) / V
         ########## Code ends here ##########
 
         # apply control limits
